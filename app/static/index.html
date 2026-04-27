@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Umfrage-Orchestrierung – Simulation</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --card: #22263a;
+    --border: #2e3350;
+    --accent: #4f7ef8;
+    --accent2: #7c5ce8;
+    --green: #2ecc71;
+    --yellow: #f39c12;
+    --red: #e74c3c;
+    --text: #e8eaf6;
+    --muted: #8892b0;
+    --radius: 10px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+  h1 { font-size: 1.6rem; font-weight: 700; }
+  h2 { font-size: 1.1rem; font-weight: 600; color: var(--accent); margin-bottom: 12px; }
+  h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .header .logo { font-size: 1.5rem; }
+  .header .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+
+  .layout { display: grid; grid-template-columns: 300px 1fr; gap: 0; min-height: calc(100vh - 60px); }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .sidebar-section { margin-bottom: 24px; }
+
+  /* Main content */
+  .main { padding: 24px; overflow-y: auto; }
+
+  /* Stats cards */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-card .num { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+  .stat-card .label { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
+  .stat-card.accent .num { color: var(--accent); }
+  .stat-card.green .num { color: var(--green); }
+  .stat-card.yellow .num { color: var(--yellow); }
+  .stat-card.red .num { color: var(--red); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+  .tab {
+    padding: 8px 18px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    cursor: pointer;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: none;
+    font-size: 0.88rem;
+    transition: all .15s;
+  }
+  .tab.active { background: var(--card); border-color: var(--border); color: var(--text); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 12px; color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(79,126,248,.05); }
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.73rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+  }
+  .badge-offen    { background: rgba(79,126,248,.15); color: var(--accent); }
+  .badge-laufend  { background: rgba(46,204,113,.15); color: var(--green); }
+  .badge-abgeschlossen { background: rgba(136,146,176,.15); color: var(--muted); }
+  .badge-ausstehend { background: rgba(243,156,18,.15); color: var(--yellow); }
+  .badge-versandt   { background: rgba(79,126,248,.15); color: var(--accent); }
+  .badge-eingegangen { background: rgba(46,204,113,.15); color: var(--green); }
+  .badge-eskaliert  { background: rgba(231,76,60,.15); color: var(--red); }
+  .badge-pending    { background: rgba(243,156,18,.15); color: var(--yellow); }
+  .badge-freigegeben { background: rgba(46,204,113,.15); color: var(--green); }
+  .badge-abgelehnt  { background: rgba(231,76,60,.15); color: var(--red); }
+  .badge-positiv  { background: rgba(46,204,113,.15); color: var(--green); }
+  .badge-negativ  { background: rgba(231,76,60,.15); color: var(--red); }
+  .badge-neutral  { background: rgba(136,146,176,.15); color: var(--muted); }
+  .badge-unklar   { background: rgba(243,156,18,.15); color: var(--yellow); }
+
+  /* Forms */
+  .form-group { margin-bottom: 12px; }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  input, textarea, select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    transition: border-color .15s;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:hover { opacity: .88; }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-danger  { background: var(--red); color: #fff; }
+  .btn-warning { background: var(--yellow); color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* Panel cards */
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+
+  /* KI result */
+  .ki-result {
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-top: 14px;
+  }
+  .ki-result .ki-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start; }
+  .ki-result .ki-label { color: var(--muted); font-size: 0.78rem; min-width: 110px; flex-shrink: 0; margin-top: 2px; }
+  .ki-result .ki-val { font-size: 0.88rem; }
+  .ki-result .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag { background: rgba(79,126,248,.12); color: var(--accent); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+
+  /* Simulator note */
+  .sim-note {
+    background: rgba(79,126,248,.08);
+    border: 1px solid rgba(79,126,248,.25);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* Progress bar */
+  .progress { background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s; }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    font-size: 0.85rem;
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .25s;
+    max-width: 320px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { border-color: var(--green); }
+  .toast.error   { border-color: var(--red); }
+
+  .detail-back { color: var(--accent); cursor: pointer; font-size: 0.85rem; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 4px; }
+  .detail-back:hover { text-decoration: underline; }
+
+  .umfrage-row { cursor: pointer; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">📋</div>
+  <div>
+    <h1>Umfrage-Orchestrierung</h1>
+    <div class="subtitle">Iterative E-Mail-Abfragen · Simulation mit KI-Extraktion</div>
+  </div>
+  <button class="btn btn-primary" style="margin-left:auto" onclick="showTab('neu')">+ Neue Umfrage</button>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <h2>Navigation</h2>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-primary" onclick="showTab('dashboard')" style="justify-content:flex-start">📊 Dashboard</button>
+        <button class="btn" style="background:var(--card);justify-content:flex-start" onclick="showTab('simulator')">📨 E-Mail Simulator</button>
+        <button class="btn" style="background:var(--card);justify-content:flex-start" onclick="showTab('neu')">➕ Neue Umfrage</button>
+        <button class="btn" style="background:var(--card);justify-content:flex-start" onclick="showTab('teilnehmer')">👥 Teilnehmer</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h2>Umfragen</h2>
+      <div id="sidebar-umfragen" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3 style="color:var(--muted)">Legende</h3>
+      <div style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem">
+        <div><span class="badge badge-ausstehend">AUSSTEHEND</span> Noch nicht versendet</div>
+        <div><span class="badge badge-versandt">VERSANDT</span> E-Mail raus</div>
+        <div><span class="badge badge-eingegangen">EINGEGANGEN</span> Geantwortet</div>
+        <div><span class="badge badge-eskaliert">ESKALIERT</span> Frist überschritten</div>
+        <div><span class="badge badge-pending">PENDING</span> KI-Review ausstehend</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- DASHBOARD TAB -->
+    <div id="tab-dashboard" class="tab-panel active">
+      <div class="stats" id="stats-cards">
+        <div class="stat-card accent"><div class="num" id="s-offen">–</div><div class="label">Offene Umfragen</div></div>
+        <div class="stat-card yellow"><div class="num" id="s-ausstehend">–</div><div class="label">Ausstehende Antworten</div></div>
+        <div class="stat-card red"><div class="num" id="s-eskaliert">–</div><div class="label">Eskalierte Fälle</div></div>
+        <div class="stat-card green"><div class="num" id="s-pending">–</div><div class="label">Pending KI-Review</div></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Umfrage-ID</th>
+              <th>Titel</th>
+              <th>Status</th>
+              <th>Frist</th>
+              <th>Rücklauf</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="umfragen-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DETAIL TAB -->
+    <div id="tab-detail" class="tab-panel">
+      <div class="detail-back" onclick="showTab('dashboard')">← Zurück zur Übersicht</div>
+      <div id="detail-content"></div>
+    </div>
+
+    <!-- SIMULATOR TAB -->
+    <div id="tab-simulator" class="tab-panel">
+      <div class="panel">
+        <h2>📨 E-Mail-Eingang simulieren</h2>
+        <div class="sim-note">
+          Trage im Betreff die Umfrage-ID ein, z.B. <strong>[UMF-2026-001] Re: Seminar-Rückmeldung</strong>.
+          Claude analysiert den Text automatisch und extrahiert strukturierte Daten.
+        </div>
+        <div class="form-group">
+          <label>Betreff (mit [UMF-YYYY-NNN])</label>
+          <input type="text" id="sim-betreff" value="[UMF-2026-001] Re: Seminar-Rückmeldung Q2" />
+        </div>
+        <div class="form-group">
+          <label>E-Mail-Text (Freitext, wie eine echte Antwort)</label>
+          <textarea id="sim-text" rows="6" placeholder="z.B.: Hallo, ich bewerte das Seminar insgesamt positiv. Die Referentin war sehr kompetent, allerdings war die Zeitplanung etwas eng. Ich würde mir für das nächste Mal mehr Praxisübungen wünschen. Die Räumlichkeiten waren gut. Insgesamt gerne wieder. Freundliche Grüße, Anna"></textarea>
+        </div>
+        <button class="btn btn-primary" id="sim-btn" onclick="simuliereAntwort()">
+          <span id="sim-btn-text">Antwort einreichen + KI analysieren</span>
+        </button>
+        <div id="sim-result" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- NEUE UMFRAGE TAB -->
+    <div id="tab-neu" class="tab-panel">
+      <div class="panel">
+        <h2>➕ Neue Umfrage anlegen</h2>
+        <div class="form-group">
+          <label>Titel *</label>
+          <input type="text" id="neu-titel" placeholder="z.B. Seminar-Feedback Herbst 2026" />
+        </div>
+        <div class="form-group">
+          <label>Beschreibung</label>
+          <textarea id="neu-beschreibung" placeholder="Was sollen die Teilnehmer bewerten?"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Frist (Datum & Zeit) *</label>
+          <input type="datetime-local" id="neu-frist" />
+        </div>
+        <div class="form-group">
+          <label>Seminar-ID (intern)</label>
+          <input type="text" id="neu-seminar-id" placeholder="z.B. SEM-2026-043" />
+        </div>
+        <div class="form-group">
+          <label>Seminar-Name</label>
+          <input type="text" id="neu-seminar-name" placeholder="z.B. Führungskräfte-Workshop Süd" />
+        </div>
+        <button class="btn btn-primary" onclick="createUmfrage()">Umfrage anlegen</button>
+      </div>
+
+      <div class="panel">
+        <h2>👤 Neuen Teilnehmer anlegen</h2>
+        <div class="form-group">
+          <label>Name *</label>
+          <input type="text" id="tn-name" placeholder="Vorname Nachname" />
+        </div>
+        <div class="form-group">
+          <label>E-Mail *</label>
+          <input type="email" id="tn-email" placeholder="vorname@unternehmen.de" />
+        </div>
+        <div class="form-group">
+          <label>Region</label>
+          <input type="text" id="tn-region" placeholder="z.B. Nord, Süd, West, Ost" />
+        </div>
+        <button class="btn btn-primary" onclick="createTeilnehmer()">Teilnehmer anlegen</button>
+      </div>
+    </div>
+
+    <!-- TEILNEHMER TAB -->
+    <div id="tab-teilnehmer" class="tab-panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>E-Mail</th><th>Region</th></tr>
+          </thead>
+          <tbody id="tn-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentUmfragen = [];
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'teilnehmer') loadTeilnehmer();
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── API ────────────────────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  const [stats, umfragen] = await Promise.all([
+    api('/api/stats'),
+    api('/api/umfragen'),
+  ]);
+  currentUmfragen = umfragen;
+
+  document.getElementById('s-offen').textContent = stats.offene_umfragen;
+  document.getElementById('s-ausstehend').textContent = stats.ausstehende_antworten;
+  document.getElementById('s-eskaliert').textContent = stats.eskalierte_faelle;
+  document.getElementById('s-pending').textContent = stats.pending_review;
+
+  // Sidebar
+  const sb = document.getElementById('sidebar-umfragen');
+  sb.innerHTML = umfragen.map(u => `
+    <div onclick="showDetail(${u.id})" style="cursor:pointer;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+      <div style="font-size:0.78rem;color:var(--accent)">${u.umfrage_id}</div>
+      <div style="font-size:0.83rem;margin-top:2px">${u.titel}</div>
+    </div>
+  `).join('');
+
+  // Tabelle
+  const tbody = document.getElementById('umfragen-tbody');
+  tbody.innerHTML = umfragen.map(u => {
+    const total = u.teilnehmer_gesamt || 0;
+    const ein = u.eingegangen || 0;
+    const pct = total ? Math.round(ein / total * 100) : 0;
+    const frist = new Date(u.frist).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+    return `<tr class="umfrage-row" onclick="showDetail(${u.id})">
+      <td><span style="font-family:monospace;color:var(--accent)">${u.umfrage_id}</span></td>
+      <td>
+        <div>${u.titel}</div>
+        ${u.seminar_name ? `<div style="font-size:0.75rem;color:var(--muted)">${u.seminar_id} · ${u.seminar_name}</div>` : ''}
+      </td>
+      <td><span class="badge badge-${u.status.toLowerCase()}">${u.status}</span></td>
+      <td style="color:var(--muted)">${frist}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="progress" style="width:80px"><div class="progress-bar" style="width:${pct}%"></div></div>
+          <span style="font-size:0.78rem;color:var(--muted)">${ein}/${total}</span>
+        </div>
+      </td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn btn-sm btn-primary" onclick="versenden(${u.id})">Versenden</button>
+        <button class="btn btn-sm btn-warning" onclick="eskalieren(${u.id})" style="margin-left:4px">Eskalieren</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Detail ─────────────────────────────────────────────────────────────────
+async function showDetail(id) {
+  showTab('detail');
+  const data = await api(`/api/umfragen/${id}`);
+  const u = data.umfrage;
+  const frist = new Date(u.frist).toLocaleString('de-DE');
+
+  const teilnehmerRows = data.teilnehmer.map(t => {
+    const antwortSection = t.antwort_id ? `
+      <details style="margin-top:6px">
+        <summary style="cursor:pointer;font-size:0.78rem;color:var(--accent)">KI-Extraktion anzeigen</summary>
+        ${renderKI(t.extrahierte_daten, t.antwort_id, t.review_status)}
+      </details>
+    ` : '';
+    return `<tr>
+      <td>${t.name}</td>
+      <td style="color:var(--muted)">${t.email}</td>
+      <td>${t.region || '–'}</td>
+      <td><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span></td>
+      <td style="color:var(--muted);font-size:0.78rem">${t.geantwortet_am ? new Date(t.geantwortet_am).toLocaleString('de-DE') : '–'}</td>
+      <td>${antwortSection}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:0.85rem;color:var(--accent);font-family:monospace">${u.umfrage_id}</div>
+          <h2 style="margin-top:4px;color:var(--text)">${u.titel}</h2>
+          <div style="color:var(--muted);margin-top:4px">${u.beschreibung || ''}</div>
+        </div>
+        <span class="badge badge-${u.status.toLowerCase()}">${u.status}</span>
+      </div>
+      <div style="margin-top:12px;font-size:0.82rem;color:var(--muted)">Frist: ${frist}</div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <h2>Teilnehmer &amp; Antworten</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>E-Mail</th><th>Region</th><th>Status</th><th>Geantwortet</th><th>KI-Analyse</th></tr></thead>
+        <tbody>${teilnehmerRows}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <h3>Teilnehmer hinzufügen</h3>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="email" id="add-tn-email" placeholder="E-Mail des Teilnehmers" style="max-width:280px" />
+        <button class="btn btn-primary" onclick="addTeilnehmer(${u.id})">Hinzufügen</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderKI(daten, antwortId, reviewStatus) {
+  if (!daten) return '<div style="color:var(--muted)">Keine Daten</div>';
+  const d = typeof daten === 'string' ? JSON.parse(daten) : daten;
+  const bew = (d.bewertung || '').toLowerCase();
+  const tags = (d.stichworte || []).map(s => `<span class="tag">${s}</span>`).join('');
+  const reviewBtns = reviewStatus === 'PENDING' ? `
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn btn-sm btn-success" onclick="reviewAntwort(${antwortId},'freigeben')">✓ Freigeben</button>
+      <button class="btn btn-sm btn-danger" onclick="reviewAntwort(${antwortId},'ablehnen')">✗ Ablehnen</button>
+    </div>` : `<div style="margin-top:8px"><span class="badge badge-${reviewStatus.toLowerCase()}">${reviewStatus}</span></div>`;
+  return `<div class="ki-result">
+    <div class="ki-row"><span class="ki-label">Kernaussage</span><span class="ki-val">${d.kernaussage || '–'}</span></div>
+    <div class="ki-row"><span class="ki-label">Bewertung</span><span class="badge badge-${bew}">${d.bewertung || '–'}</span></div>
+    <div class="ki-row"><span class="ki-label">Handlungsbedarf</span><span class="ki-val">${d.handlungsbedarf ? '⚠️ Ja' : '✓ Nein'}</span></div>
+    <div class="ki-row"><span class="ki-label">Vollständigkeit</span><span class="ki-val">${d.vollstaendigkeit || '–'}</span></div>
+    <div class="ki-row"><span class="ki-label">Stichworte</span><div class="tags">${tags}</div></div>
+    ${reviewBtns}
+  </div>`;
+}
+
+// ── Aktionen ───────────────────────────────────────────────────────────────
+async function versenden(id) {
+  try {
+    const r = await api(`/api/umfragen/${id}/versenden`, { method: 'POST' });
+    toast(`✉️ ${r.versandt_an} E-Mails versendet (simuliert)`);
+    loadDashboard();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function eskalieren(id) {
+  try {
+    const r = await api(`/api/umfragen/${id}/eskalieren`, { method: 'POST' });
+    toast(`🔴 ${r.eskaliert} Teilnehmer eskaliert`);
+    loadDashboard();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function addTeilnehmer(umfrageId) {
+  const email = document.getElementById('add-tn-email').value.trim();
+  if (!email) return;
+  try {
+    await api(`/api/umfragen/${umfrageId}/teilnehmer`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    toast('Teilnehmer hinzugefügt');
+    showDetail(umfrageId);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function reviewAntwort(antwortId, aktion) {
+  try {
+    await api(`/api/antworten/${antwortId}/${aktion}`, { method: 'POST' });
+    toast(aktion === 'freigeben' ? '✓ Freigegeben' : '✗ Abgelehnt');
+    // Detailseite neu laden (ID aus URL nicht bekannt → einfach ganzes Detail neu)
+    const activeDetail = document.getElementById('tab-detail');
+    if (activeDetail.classList.contains('active')) {
+      // Seite neu laden
+      location.reload();
+    }
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function simuliereAntwort() {
+  const btn = document.getElementById('sim-btn');
+  const btnText = document.getElementById('sim-btn-text');
+  const betreff = document.getElementById('sim-betreff').value.trim();
+  const text = document.getElementById('sim-text').value.trim();
+  if (!betreff || !text) { toast('Betreff und Text erforderlich', 'error'); return; }
+
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="spinner"></span> KI analysiert…';
+
+  try {
+    const r = await api('/api/simulator/antwort', {
+      method: 'POST',
+      body: JSON.stringify({ betreff, roh_text: text }),
+    });
+    const d = r.extrahiert;
+    const bew = (d.bewertung || '').toLowerCase();
+    const tags = (d.stichworte || []).map(s => `<span class="tag">${s}</span>`).join('');
+    document.getElementById('sim-result').style.display = 'block';
+    document.getElementById('sim-result').innerHTML = `
+      <div class="ki-result" style="margin-top:14px">
+        <div style="color:var(--green);font-weight:600;margin-bottom:10px">✓ KI-Extraktion erfolgreich · Umfrage ${r.umfrage_id}</div>
+        <div class="ki-row"><span class="ki-label">Kernaussage</span><span class="ki-val">${d.kernaussage || '–'}</span></div>
+        <div class="ki-row"><span class="ki-label">Bewertung</span><span class="badge badge-${bew}">${d.bewertung || '–'}</span></div>
+        <div class="ki-row"><span class="ki-label">Handlungsbedarf</span><span class="ki-val">${d.handlungsbedarf ? '⚠️ Ja' : '✓ Nein'}</span></div>
+        <div class="ki-row"><span class="ki-label">Vollständigkeit</span><span class="ki-val">${d.vollstaendigkeit || '–'}</span></div>
+        <div class="ki-row"><span class="ki-label">Stichworte</span><div class="tags">${tags}</div></div>
+        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted)">Status: PENDING · Bitte im Dashboard freigeben oder ablehnen</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn btn-sm btn-success" onclick="reviewAntwort(${r.antwort_id},'freigeben')">✓ Freigeben</button>
+          <button class="btn btn-sm btn-danger" onclick="reviewAntwort(${r.antwort_id},'ablehnen')">✗ Ablehnen</button>
+        </div>
+      </div>`;
+    toast('Antwort eingegangen + KI-Analyse fertig');
+  } catch(e) {
+    toast(e.message, 'error');
+    document.getElementById('sim-result').style.display = 'none';
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Antwort einreichen + KI analysieren';
+  }
+}
+
+async function createUmfrage() {
+  const titel = document.getElementById('neu-titel').value.trim();
+  const frist = document.getElementById('neu-frist').value;
+  if (!titel || !frist) { toast('Titel und Frist erforderlich', 'error'); return; }
+  try {
+    const r = await api('/api/umfragen', {
+      method: 'POST',
+      body: JSON.stringify({
+        titel,
+        beschreibung: document.getElementById('neu-beschreibung').value,
+        frist,
+        seminar_id: document.getElementById('neu-seminar-id').value,
+        seminar_name: document.getElementById('neu-seminar-name').value,
+      }),
+    });
+    toast(`Umfrage ${r.umfrage_id} angelegt`);
+    showTab('dashboard');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function createTeilnehmer() {
+  const name = document.getElementById('tn-name').value.trim();
+  const email = document.getElementById('tn-email').value.trim();
+  if (!name || !email) { toast('Name und E-Mail erforderlich', 'error'); return; }
+  try {
+    await api('/api/teilnehmer', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, region: document.getElementById('tn-region').value }),
+    });
+    toast(`Teilnehmer ${name} angelegt`);
+    ['tn-name','tn-email','tn-region'].forEach(id => document.getElementById(id).value = '');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function loadTeilnehmer() {
+  const rows = await api('/api/teilnehmer');
+  document.getElementById('tn-tbody').innerHTML = rows.map(t => `
+    <tr><td>${t.name}</td><td style="color:var(--muted)">${t.email}</td><td>${t.region || '–'}</td></tr>
+  `).join('');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>

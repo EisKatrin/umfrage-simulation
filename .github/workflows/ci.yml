@@ -1,0 +1,178 @@
+name: CI / CD + SecCD
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 1: Unit-Tests (kein DB nötig)
+  # ─────────────────────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit-Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python Setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r app/requirements.txt pytest pytest-cov
+
+      - name: Unit-Tests ausführen
+        run: pytest tests/test_unit.py -v --tb=short
+        env:
+          DATABASE_URL: "postgresql://skip:skip@localhost/skip"
+          ANTHROPIC_API_KEY: "test-placeholder"
+          TESTING: "1"
+
+      - name: Coverage hochladen
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 2: Integrationstests (echte PostgreSQL via Service-Container)
+  # ─────────────────────────────────────────────────────────────────────────
+  integration-tests:
+    name: Integrationstests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: umfrage
+          POSTGRES_PASSWORD: umfrage2026
+          POSTGRES_DB: umfrage_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python Setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r app/requirements.txt pytest pytest-cov
+
+      - name: Integrationstests ausführen
+        run: pytest tests/test_integration.py -v --tb=short
+        env:
+          TEST_DATABASE_URL: postgresql://umfrage:umfrage2026@localhost:5432/umfrage_test
+          DATABASE_URL: postgresql://umfrage:umfrage2026@localhost:5432/umfrage_test
+          ANTHROPIC_API_KEY: test-placeholder
+          PYTHONPATH: app
+          TESTING: "1"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 3: CI/SecCD – Security-Tests
+  # ─────────────────────────────────────────────────────────────────────────
+  security-tests:
+    name: "CI/SecCD – Security-Tests"
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: umfrage
+          POSTGRES_PASSWORD: umfrage2026
+          POSTGRES_DB: umfrage_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python Setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r app/requirements.txt pytest bandit safety
+
+      - name: "SecCD 1/3 – OWASP-Angriffsvektoren testen"
+        run: pytest tests/test_security.py -v --tb=short
+        env:
+          TEST_DATABASE_URL: postgresql://umfrage:umfrage2026@localhost:5432/umfrage_test
+          DATABASE_URL: postgresql://umfrage:umfrage2026@localhost:5432/umfrage_test
+          ANTHROPIC_API_KEY: test-placeholder
+          PYTHONPATH: app
+          TESTING: "1"
+
+      - name: "SecCD 2/3 – Bandit SAST (statische Code-Analyse)"
+        run: |
+          bandit -r app/ \
+            --severity-level medium \
+            --confidence-level medium \
+            --format json \
+            --output bandit-report.json || true
+          bandit -r app/ --severity-level high --exit-zero
+        # high-severity Findings würden den Build brechen (--exit-zero entfernen für Produktion)
+
+      - name: Bandit-Report hochladen
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+
+      - name: "SecCD 3/3 – Safety (bekannte CVEs in Dependencies)"
+        run: safety check -r app/requirements.txt --output text || true
+        # --continue-on-error für Entwicklungsphase; in Produktion ohne || true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 4: Docker Build (Smoke-Test)
+  # ─────────────────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build & Smoke-Test
+    runs-on: ubuntu-latest
+    needs: [integration-tests, security-tests]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Compose starten
+        run: |
+          # Placeholder-Key reicht für Build-Test
+          echo "ANTHROPIC_API_KEY=test-placeholder" >> .env
+          docker compose up -d --wait
+        env:
+          ANTHROPIC_API_KEY: test-placeholder
+
+      - name: Smoke-Test – API antwortet
+        run: |
+          sleep 10
+          curl --fail --retry 5 --retry-delay 3 http://localhost:8061/api/stats
+          echo "Smoke-Test bestanden"
+
+      - name: Docker Compose stoppen
+        if: always()
+        run: docker compose down -v
