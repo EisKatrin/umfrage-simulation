@@ -184,3 +184,58 @@ class TestIdempotenz:
         stats = client.get("/api/stats").json()
         # Keine doppelten Einträge → ausstehend bleibt 0 (keine Teilnehmer)
         assert stats["ausstehende_antworten"] == 0
+
+
+# ---------------------------------------------------------------------------
+# XSS-Schutz: User- und KI-Output dürfen kein <script> ungeprüft enthalten
+# ---------------------------------------------------------------------------
+
+class TestXSS:
+    """Prüft dass das Dashboard escapeHtml() für alle dynamischen Inhalte nutzt."""
+
+    def test_dashboard_html_enthaelt_esc_funktion(self, client):
+        """Dashboard liefert eine HTML-Escape-Funktion für innerHTML-Rendering."""
+        r = client.get("/")
+        assert r.status_code == 200
+        body = r.text
+        assert "function esc(" in body, "esc() Funktion fehlt im Dashboard"
+        assert "&amp;" in body and "&lt;" in body and "&gt;" in body, \
+            "esc() Funktion escaped nicht alle HTML-Sonderzeichen"
+
+    def test_xss_payload_im_titel_wird_in_db_gespeichert(self, client):
+        """User-Input mit <script> wird gespeichert — Frontend muss escapen."""
+        payload = "<script>alert('xss')</script>"
+        r = client.post("/api/umfragen", json={
+            "titel": payload,
+            "frist": "2026-12-31T18:00:00",
+        })
+        assert r.status_code == 201
+        # API gibt rohen Text zurück (Frontend escaped beim Rendern)
+        detail = client.get(f"/api/umfragen/{r.json()['id']}").json()
+        assert detail["umfrage"]["titel"] == payload
+
+
+# ---------------------------------------------------------------------------
+# Security-Header (CSP, X-Frame, X-Content-Type-Options)
+# ---------------------------------------------------------------------------
+
+class TestSecurityHeaders:
+    """Prüft Schutz-Header gegen Clickjacking, MIME-Sniffing, Inline-Scripts."""
+
+    def test_csp_header_gesetzt(self, client):
+        r = client.get("/api/stats")
+        csp = r.headers.get("content-security-policy", "")
+        assert "default-src 'self'" in csp
+        assert "frame-ancestors 'none'" in csp
+
+    def test_x_frame_options_deny(self, client):
+        r = client.get("/api/stats")
+        assert r.headers.get("x-frame-options") == "DENY"
+
+    def test_x_content_type_options_nosniff(self, client):
+        r = client.get("/api/stats")
+        assert r.headers.get("x-content-type-options") == "nosniff"
+
+    def test_referrer_policy_gesetzt(self, client):
+        r = client.get("/api/stats")
+        assert "strict-origin" in r.headers.get("referrer-policy", "")

@@ -153,6 +153,24 @@ app = FastAPI(title="Umfrage-Simulation", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+@app.middleware("http")
+async def security_headers(request, call_next):
+    """Setzt Schutz-Header für alle Antworten (CSP, X-Frame, etc.)."""
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'"
+    )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 class UmfrageCreate(BaseModel):
     """Eingabe für neue Umfrage."""
     titel: str

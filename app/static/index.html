@@ -417,6 +417,17 @@ function toast(msg, type = 'success') {
 }
 
 // ── API ────────────────────────────────────────────────────────────────────
+// XSS-Schutz: alle Strings aus API/KI vor innerHTML escapen
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function api(path, opts = {}) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -446,8 +457,8 @@ async function loadDashboard() {
   const sb = document.getElementById('sidebar-umfragen');
   sb.innerHTML = umfragen.map(u => `
     <div onclick="showDetail(${u.id})" style="cursor:pointer;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
-      <div style="font-size:0.78rem;color:var(--accent)">${u.umfrage_id}</div>
-      <div style="font-size:0.83rem;margin-top:2px">${u.titel}</div>
+      <div style="font-size:0.78rem;color:var(--accent)">${esc(u.umfrage_id)}</div>
+      <div style="font-size:0.83rem;margin-top:2px">${esc(u.titel)}</div>
     </div>
   `).join('');
 
@@ -459,12 +470,12 @@ async function loadDashboard() {
     const pct = total ? Math.round(ein / total * 100) : 0;
     const frist = new Date(u.frist).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
     return `<tr class="umfrage-row" onclick="showDetail(${u.id})">
-      <td><span style="font-family:monospace;color:var(--accent)">${u.umfrage_id}</span></td>
+      <td><span style="font-family:monospace;color:var(--accent)">${esc(u.umfrage_id)}</span></td>
       <td>
-        <div>${u.titel}</div>
-        ${u.seminar_name ? `<div style="font-size:0.75rem;color:var(--muted)">${u.seminar_id} · ${u.seminar_name}</div>` : ''}
+        <div>${esc(u.titel)}</div>
+        ${u.seminar_name ? `<div style="font-size:0.75rem;color:var(--muted)">${esc(u.seminar_id)} · ${esc(u.seminar_name)}</div>` : ''}
       </td>
-      <td><span class="badge badge-${u.status.toLowerCase()}">${u.status}</span></td>
+      <td><span class="badge badge-${esc(u.status.toLowerCase())}">${esc(u.status)}</span></td>
       <td style="color:var(--muted)">${frist}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
@@ -495,10 +506,10 @@ async function showDetail(id) {
       </details>
     ` : '';
     return `<tr>
-      <td>${t.name}</td>
-      <td style="color:var(--muted)">${t.email}</td>
-      <td>${t.region || '–'}</td>
-      <td><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span></td>
+      <td>${esc(t.name)}</td>
+      <td style="color:var(--muted)">${esc(t.email)}</td>
+      <td>${esc(t.region) || '–'}</td>
+      <td><span class="badge badge-${esc(t.status.toLowerCase())}">${esc(t.status)}</span></td>
       <td style="color:var(--muted);font-size:0.78rem">${t.geantwortet_am ? new Date(t.geantwortet_am).toLocaleString('de-DE') : '–'}</td>
       <td>${antwortSection}</td>
     </tr>`;
@@ -508,13 +519,13 @@ async function showDetail(id) {
     <div class="panel">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div style="font-size:0.85rem;color:var(--accent);font-family:monospace">${u.umfrage_id}</div>
-          <h2 style="margin-top:4px;color:var(--text)">${u.titel}</h2>
-          <div style="color:var(--muted);margin-top:4px">${u.beschreibung || ''}</div>
+          <div style="font-size:0.85rem;color:var(--accent);font-family:monospace">${esc(u.umfrage_id)}</div>
+          <h2 style="margin-top:4px;color:var(--text)">${esc(u.titel)}</h2>
+          <div style="color:var(--muted);margin-top:4px">${esc(u.beschreibung) || ''}</div>
         </div>
-        <span class="badge badge-${u.status.toLowerCase()}">${u.status}</span>
+        <span class="badge badge-${esc(u.status.toLowerCase())}">${esc(u.status)}</span>
       </div>
-      <div style="margin-top:12px;font-size:0.82rem;color:var(--muted)">Frist: ${frist}</div>
+      <div style="margin-top:12px;font-size:0.82rem;color:var(--muted)">Frist: ${esc(frist)}</div>
     </div>
 
     <div style="margin-bottom:14px">
@@ -541,17 +552,17 @@ function renderKI(daten, antwortId, reviewStatus) {
   if (!daten) return '<div style="color:var(--muted)">Keine Daten</div>';
   const d = typeof daten === 'string' ? JSON.parse(daten) : daten;
   const bew = (d.bewertung || '').toLowerCase();
-  const tags = (d.stichworte || []).map(s => `<span class="tag">${s}</span>`).join('');
+  const tags = (d.stichworte || []).map(s => `<span class="tag">${esc(s)}</span>`).join('');
   const reviewBtns = reviewStatus === 'PENDING' ? `
     <div style="display:flex;gap:6px;margin-top:10px">
       <button class="btn btn-sm btn-success" onclick="reviewAntwort(${antwortId},'freigeben')">✓ Freigeben</button>
       <button class="btn btn-sm btn-danger" onclick="reviewAntwort(${antwortId},'ablehnen')">✗ Ablehnen</button>
-    </div>` : `<div style="margin-top:8px"><span class="badge badge-${reviewStatus.toLowerCase()}">${reviewStatus}</span></div>`;
+    </div>` : `<div style="margin-top:8px"><span class="badge badge-${esc(reviewStatus.toLowerCase())}">${esc(reviewStatus)}</span></div>`;
   return `<div class="ki-result">
-    <div class="ki-row"><span class="ki-label">Kernaussage</span><span class="ki-val">${d.kernaussage || '–'}</span></div>
-    <div class="ki-row"><span class="ki-label">Bewertung</span><span class="badge badge-${bew}">${d.bewertung || '–'}</span></div>
+    <div class="ki-row"><span class="ki-label">Kernaussage</span><span class="ki-val">${esc(d.kernaussage) || '–'}</span></div>
+    <div class="ki-row"><span class="ki-label">Bewertung</span><span class="badge badge-${esc(bew)}">${esc(d.bewertung) || '–'}</span></div>
     <div class="ki-row"><span class="ki-label">Handlungsbedarf</span><span class="ki-val">${d.handlungsbedarf ? '⚠️ Ja' : '✓ Nein'}</span></div>
-    <div class="ki-row"><span class="ki-label">Vollständigkeit</span><span class="ki-val">${d.vollstaendigkeit || '–'}</span></div>
+    <div class="ki-row"><span class="ki-label">Vollständigkeit</span><span class="ki-val">${esc(d.vollstaendigkeit) || '–'}</span></div>
     <div class="ki-row"><span class="ki-label">Stichworte</span><div class="tags">${tags}</div></div>
     ${reviewBtns}
   </div>`;
@@ -617,15 +628,15 @@ async function simuliereAntwort() {
     });
     const d = r.extrahiert;
     const bew = (d.bewertung || '').toLowerCase();
-    const tags = (d.stichworte || []).map(s => `<span class="tag">${s}</span>`).join('');
+    const tags = (d.stichworte || []).map(s => `<span class="tag">${esc(s)}</span>`).join('');
     document.getElementById('sim-result').style.display = 'block';
     document.getElementById('sim-result').innerHTML = `
       <div class="ki-result" style="margin-top:14px">
-        <div style="color:var(--green);font-weight:600;margin-bottom:10px">✓ KI-Extraktion erfolgreich · Umfrage ${r.umfrage_id}</div>
-        <div class="ki-row"><span class="ki-label">Kernaussage</span><span class="ki-val">${d.kernaussage || '–'}</span></div>
-        <div class="ki-row"><span class="ki-label">Bewertung</span><span class="badge badge-${bew}">${d.bewertung || '–'}</span></div>
+        <div style="color:var(--green);font-weight:600;margin-bottom:10px">✓ KI-Extraktion erfolgreich · Umfrage ${esc(r.umfrage_id)}</div>
+        <div class="ki-row"><span class="ki-label">Kernaussage</span><span class="ki-val">${esc(d.kernaussage) || '–'}</span></div>
+        <div class="ki-row"><span class="ki-label">Bewertung</span><span class="badge badge-${esc(bew)}">${esc(d.bewertung) || '–'}</span></div>
         <div class="ki-row"><span class="ki-label">Handlungsbedarf</span><span class="ki-val">${d.handlungsbedarf ? '⚠️ Ja' : '✓ Nein'}</span></div>
-        <div class="ki-row"><span class="ki-label">Vollständigkeit</span><span class="ki-val">${d.vollstaendigkeit || '–'}</span></div>
+        <div class="ki-row"><span class="ki-label">Vollständigkeit</span><span class="ki-val">${esc(d.vollstaendigkeit) || '–'}</span></div>
         <div class="ki-row"><span class="ki-label">Stichworte</span><div class="tags">${tags}</div></div>
         <div style="margin-top:10px;font-size:0.78rem;color:var(--muted)">Status: PENDING · Bitte im Dashboard freigeben oder ablehnen</div>
         <div style="display:flex;gap:6px;margin-top:8px">
@@ -680,7 +691,7 @@ async function createTeilnehmer() {
 async function loadTeilnehmer() {
   const rows = await api('/api/teilnehmer');
   document.getElementById('tn-tbody').innerHTML = rows.map(t => `
-    <tr><td>${t.name}</td><td style="color:var(--muted)">${t.email}</td><td>${t.region || '–'}</td></tr>
+    <tr><td>${esc(t.name)}</td><td style="color:var(--muted)">${esc(t.email)}</td><td>${esc(t.region) || '–'}</td></tr>
   `).join('');
 }
 
