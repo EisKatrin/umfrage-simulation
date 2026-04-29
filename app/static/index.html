@@ -7,17 +7,17 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --card: #22263a;
-    --border: #2e3350;
-    --accent: #4f7ef8;
-    --accent2: #7c5ce8;
-    --green: #2ecc71;
-    --yellow: #f39c12;
-    --red: #e74c3c;
-    --text: #e8eaf6;
-    --muted: #8892b0;
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --border: #d8dde6;
+    --accent: #2563eb;
+    --accent2: #6366f1;
+    --green: #16a34a;
+    --yellow: #d97706;
+    --red: #dc2626;
+    --text: #1f2937;
+    --muted: #6b7280;
     --radius: 10px;
   }
   body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
@@ -101,20 +101,20 @@
     font-weight: 600;
     letter-spacing: .03em;
   }
-  .badge-offen    { background: rgba(79,126,248,.15); color: var(--accent); }
-  .badge-laufend  { background: rgba(46,204,113,.15); color: var(--green); }
-  .badge-abgeschlossen { background: rgba(136,146,176,.15); color: var(--muted); }
-  .badge-ausstehend { background: rgba(243,156,18,.15); color: var(--yellow); }
-  .badge-versandt   { background: rgba(79,126,248,.15); color: var(--accent); }
-  .badge-eingegangen { background: rgba(46,204,113,.15); color: var(--green); }
-  .badge-eskaliert  { background: rgba(231,76,60,.15); color: var(--red); }
-  .badge-pending    { background: rgba(243,156,18,.15); color: var(--yellow); }
-  .badge-freigegeben { background: rgba(46,204,113,.15); color: var(--green); }
-  .badge-abgelehnt  { background: rgba(231,76,60,.15); color: var(--red); }
-  .badge-positiv  { background: rgba(46,204,113,.15); color: var(--green); }
-  .badge-negativ  { background: rgba(231,76,60,.15); color: var(--red); }
-  .badge-neutral  { background: rgba(136,146,176,.15); color: var(--muted); }
-  .badge-unklar   { background: rgba(243,156,18,.15); color: var(--yellow); }
+  .badge-offen    { background: #dbeafe; color: #1e40af; }
+  .badge-laufend  { background: #dcfce7; color: #15803d; }
+  .badge-abgeschlossen { background: #e5e7eb; color: #4b5563; }
+  .badge-ausstehend { background: #fef3c7; color: #92400e; }
+  .badge-versandt   { background: #dbeafe; color: #1e40af; }
+  .badge-eingegangen { background: #dcfce7; color: #15803d; }
+  .badge-eskaliert  { background: #fee2e2; color: #991b1b; }
+  .badge-pending    { background: #fef3c7; color: #92400e; }
+  .badge-freigegeben { background: #dcfce7; color: #15803d; }
+  .badge-abgelehnt  { background: #fee2e2; color: #991b1b; }
+  .badge-positiv  { background: #dcfce7; color: #15803d; }
+  .badge-negativ  { background: #fee2e2; color: #991b1b; }
+  .badge-neutral  { background: #e5e7eb; color: #4b5563; }
+  .badge-unklar   { background: #fef3c7; color: #92400e; }
 
   /* Forms */
   .form-group { margin-bottom: 12px; }
@@ -166,8 +166,8 @@
 
   /* KI result */
   .ki-result {
-    background: var(--bg);
-    border: 1px solid var(--accent);
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
     border-radius: var(--radius);
     padding: 14px;
     margin-top: 14px;
@@ -176,16 +176,16 @@
   .ki-result .ki-label { color: var(--muted); font-size: 0.78rem; min-width: 110px; flex-shrink: 0; margin-top: 2px; }
   .ki-result .ki-val { font-size: 0.88rem; }
   .ki-result .tags { display: flex; flex-wrap: wrap; gap: 4px; }
-  .tag { background: rgba(79,126,248,.12); color: var(--accent); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+  .tag { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
 
   /* Simulator note */
   .sim-note {
-    background: rgba(79,126,248,.08);
-    border: 1px solid rgba(79,126,248,.25);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
     border-radius: 6px;
     padding: 10px 14px;
     font-size: 0.82rem;
-    color: var(--muted);
+    color: #1e40af;
     margin-bottom: 16px;
   }
 
@@ -197,11 +197,13 @@
   .spinner {
     display: inline-block;
     width: 14px; height: 14px;
-    border: 2px solid rgba(255,255,255,.3);
+    border: 2px solid rgba(255,255,255,.4);
     border-top-color: #fff;
     border-radius: 50%;
     animation: spin .6s linear infinite;
   }
+  /* Subtle shadow for cards on light bg */
+  .stat-card, .panel, .table-wrap { box-shadow: 0 1px 2px rgba(0,0,0,.04); }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .toast {
