@@ -149,8 +149,10 @@ async def lifespan(app: FastAPI):
     yield
 
 
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
 app = FastAPI(title="Umfrage-Simulation", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 
 @app.middleware("http")
@@ -239,7 +241,7 @@ def _ki_extraktion(roh_text: str) -> dict:
 @app.get("/")
 def dashboard():
     """Liefert das Dashboard als HTML."""
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(_STATIC_DIR, "index.html"))
 
 
 @app.get("/api/stats")
