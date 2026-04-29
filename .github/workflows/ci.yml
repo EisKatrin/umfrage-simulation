@@ -160,19 +160,19 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Docker Compose starten
-        run: |
-          # Placeholder-Key reicht für Build-Test
-          echo "ANTHROPIC_API_KEY=test-placeholder" >> .env
-          docker compose up -d --wait
+        run: docker compose -f docker-compose.ci.yml up -d --wait
         env:
           ANTHROPIC_API_KEY: test-placeholder
 
       - name: Smoke-Test – API antwortet
         run: |
-          sleep 10
           curl --fail --retry 5 --retry-delay 3 http://localhost:8061/api/stats
           echo "Smoke-Test bestanden"
 
+      - name: Logs bei Fehler
+        if: failure()
+        run: docker compose -f docker-compose.ci.yml logs
+
       - name: Docker Compose stoppen
         if: always()
-        run: docker compose down -v
+        run: docker compose -f docker-compose.ci.yml down -v
